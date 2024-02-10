@@ -20,6 +20,7 @@ type ShyftCNFTPayload struct {
 	MerkleTree        string  `json:"merkle_tree"`
 	CollectionAddress *string `json:"collection_address,omitempty"`
 	Receiver          *string `json:"receiver,omitempty"`
+	PriorityFee       uint64  `json:"priority_fee,omitempty"`
 }
 
 type ShyftCNFTResponse struct {
@@ -39,7 +40,7 @@ type CNFT struct {
 	Mint      string `json:"mint"`
 }
 
-func MintCNFT(apiKey string, endpoint string, creator string, metadata_uri string, merkle_tree string, collection_address *string, receiver *string) (cnft CNFT, err error) {
+func MintCNFT(apiKey string, endpoint string, creator string, metadata_uri string, merkle_tree string, collection_address *string, receiver *string, priorityFee uint64) (cnft CNFT, err error) {
 	headers := map[string]string{
 		"x-api-key": apiKey,
 	}
@@ -51,6 +52,7 @@ func MintCNFT(apiKey string, endpoint string, creator string, metadata_uri strin
 		MerkleTree:        merkle_tree,
 		CollectionAddress: collection_address,
 		Receiver:          receiver,
+		PriorityFee:       priorityFee,
 	}
 
 	body, err := json.Marshal(payload)
