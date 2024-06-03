@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+
 	"github.com/blocto/solana-go-sdk/client"
 	"github.com/blocto/solana-go-sdk/types"
 	"github.com/omarkilani/fluffle"
-	"github.com/omarkilani/transfer_mplx"
-	"log"
 )
 
 const SHYFT_CNFT_ENDPOINT = "https://api.shyft.to/sol/v1/nft/compressed/mint"
@@ -79,9 +81,17 @@ func MintCNFT(apiKey string, endpoint string, creator string, metadata_uri strin
 	if err != nil {
 		return cnft, err
 	}
+	accountJSON := os.Getenv("CNFT_MINT_ACCOUNT")
+	if accountJSON == "" {
+		return cnft, fmt.Errorf("CNFT_MINT_ACCOUNT not set")
+	}
 
-	c := client.NewClient(endpoint)
-	a, err := transfer_mplx.AccountFromEnvJSON("CNFT_MINT_ACCOUNT")
+	var bytes []byte
+	if err := json.Unmarshal([]byte(accountJSON), &bytes); err != nil {
+		return cnft, err
+	}
+
+	account, err := types.AccountFromBytes(bytes)
 	if err != nil {
 		return cnft, err
 	}
@@ -91,9 +101,9 @@ func MintCNFT(apiKey string, endpoint string, creator string, metadata_uri strin
 		return cnft, err
 	}
 
-	tx.Signatures[0] = a.Sign(rawMsg)
+	tx.Signatures[0] = account.Sign(rawMsg)
 
-	sig, err := c.SendTransaction(context.Background(), tx)
+	sig, err := client.NewClient(endpoint).SendTransaction(context.Background(), tx)
 	if err != nil {
 		log.Printf("MintCNFT: failed to send tx, err: %v", err)
 		return cnft, err
