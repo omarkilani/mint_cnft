@@ -1,16 +1,18 @@
 package mint_cnft
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 
-	"github.com/blocto/solana-go-sdk/client"
+	solana "github.com/blocto/solana-go-sdk/client"
 	"github.com/blocto/solana-go-sdk/types"
-	"github.com/omarkilani/fluffle"
 )
 
 const SHYFT_CNFT_ENDPOINT = "https://api.shyft.to/sol/v1/nft/compressed/mint"
@@ -44,7 +46,8 @@ type CNFT struct {
 
 func MintCNFT(apiKey string, endpoint string, creator string, metadata_uri string, merkle_tree string, collection_address *string, receiver *string, priorityFee uint64) (cnft CNFT, err error) {
 	headers := map[string]string{
-		"x-api-key": apiKey,
+		"x-api-key":    apiKey,
+		"Content-Type": "application/json",
 	}
 
 	payload := ShyftCNFTPayload{
@@ -63,11 +66,32 @@ func MintCNFT(apiKey string, endpoint string, creator string, metadata_uri strin
 	}
 
 	log.Println("Minting CNFT with body:", string(body))
-	resp := fluffle.HTTPPostWithHeaders(SHYFT_CNFT_ENDPOINT, "application/json", []byte(body), headers)
-	log.Println("Response:", string(resp))
+
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
+	if err != nil {
+		return cnft, err
+	}
+
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return cnft, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return cnft, err
+	}
+
+	log.Println("Response:", string(respBody))
 
 	var shyftCNFTResponse ShyftCNFTResponse
-	err = json.Unmarshal(resp, &shyftCNFTResponse)
+	err = json.Unmarshal(respBody, &shyftCNFTResponse)
 	if err != nil {
 		return cnft, err
 	}
@@ -103,7 +127,7 @@ func MintCNFT(apiKey string, endpoint string, creator string, metadata_uri strin
 
 	tx.Signatures[0] = account.Sign(rawMsg)
 
-	sig, err := client.NewClient(endpoint).SendTransaction(context.Background(), tx)
+	sig, err := solana.NewClient(endpoint).SendTransaction(context.Background(), tx)
 	if err != nil {
 		log.Printf("MintCNFT: failed to send tx, err: %v", err)
 		return cnft, err
